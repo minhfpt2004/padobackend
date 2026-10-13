@@ -2,6 +2,8 @@
 
 Backend được đóng gói bằng Docker/Java 21 và triển khai bằng Render Blueprint tại `render.yaml`.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/minhfpt2004/padobackend)
+
 ## 1. Đẩy source lên GitHub
 
 Đảm bảo các file `Dockerfile`, `.dockerignore`, `render.yaml` và source mới nhất đã có trên nhánh `main` của repository backend.
