@@ -44,6 +44,11 @@ public class OrderController {
         return orderService.findSales(authentication.getName());
     }
 
+    @GetMapping("/sales/pending")
+    List<OrderResponse> pendingSales(Authentication authentication) {
+        return orderService.findPendingSales(authentication.getName());
+    }
+
     @GetMapping("/{id}")
     OrderResponse findById(@PathVariable Long id, Authentication authentication) {
         return orderService.findById(id, authentication.getName());

@@ -24,6 +24,9 @@ import java.util.List;
 
 @Service
 public class OrderService {
+    private static final List<OrderStatus> BLOCKING_ORDER_STATUSES =
+            List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
+
     private final OrderRepository orders;
     private final ProductRepository products;
     private final UserRepository users;
@@ -45,6 +48,9 @@ public class OrderService {
         }
         if (product.isSold()) {
             throw new ConflictException("Product is no longer available");
+        }
+        if (orders.existsByProductIdAndStatusIn(product.getId(), BLOCKING_ORDER_STATUSES)) {
+            throw new ConflictException("Product already has an active order");
         }
         if (!product.getDeliveryOptions().contains(request.deliveryType())) {
             throw new BadRequestException("Selected delivery method is not available for this product");
@@ -82,7 +88,6 @@ public class OrderService {
         order.setMeetupLocation(meetupLocation);
         order.setNote(clean(request.note()));
 
-        product.setSold(true);
         return OrderResponse.from(orders.save(order));
     }
 
@@ -98,6 +103,14 @@ public class OrderService {
     public List<OrderResponse> findSales(String email) {
         User seller = requireUser(email);
         return orders.findBySellerIdOrderByCreatedAtDesc(seller.getId()).stream()
+                .map(OrderResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> findPendingSales(String email) {
+        User seller = requireUser(email);
+        return orders.findBySellerIdAndStatusOrderByCreatedAtDesc(seller.getId(), OrderStatus.PENDING).stream()
                 .map(OrderResponse::from)
                 .toList();
     }
@@ -138,6 +151,9 @@ public class OrderService {
         if (!isAdmin(actor) && !order.getSellerId().equals(actor.getId())) {
             throw new ForbiddenException("Only the seller can confirm this order");
         }
+        Product product = products.findByIdForUpdate(order.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        product.setSold(true);
         order.setStatus(OrderStatus.CONFIRMED);
     }
 
@@ -158,7 +174,7 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancelledAt(Instant.now());
-        products.findById(order.getProductId()).ifPresent(product -> product.setSold(false));
+        products.findByIdForUpdate(order.getProductId()).ifPresent(product -> product.setSold(false));
     }
 
     private ConflictException invalidTransition(PurchaseOrder order, OrderStatus target) {

@@ -260,7 +260,7 @@ public class MvpDataInitializer implements ApplicationRunner {
         if (status == OrderStatus.COMPLETED) {
             order.setCompletedAt(Instant.now());
         }
-        product.setSold(status != OrderStatus.CANCELLED);
+        product.setSold(status == OrderStatus.CONFIRMED || status == OrderStatus.COMPLETED);
         orders.save(order);
     }
 

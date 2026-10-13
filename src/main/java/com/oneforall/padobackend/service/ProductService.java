@@ -23,6 +23,7 @@ import java.util.Comparator;
 public class ProductService {
     private static final List<OrderStatus> PROTECTED_ORDER_STATUSES =
             List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
+    private static final List<OrderStatus> RESERVING_ORDER_STATUSES = List.of(OrderStatus.PENDING);
 
     private final ProductRepository products;
     private final UserRepository users;
@@ -36,7 +37,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
-        return products.findAllByOrderByCreatedAtDesc().stream().map(ProductResponse::from).toList();
+        return products.findAllByOrderByCreatedAtDesc().stream().map(this::response).toList();
     }
 
     @Transactional(readOnly = true)
@@ -49,19 +50,19 @@ public class ProductService {
                 .filter(item -> item.distanceKm() <= radiusKm)
                 .sorted(Comparator.comparingDouble(ProductDistance::distanceKm))
                 .limit(limit)
-                .map(item -> ProductResponse.from(item.product()))
+                .map(item -> response(item.product()))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public ProductResponse findById(Long id) {
-        return ProductResponse.from(requireProduct(id));
+        return response(requireProduct(id));
     }
 
     @Transactional(readOnly = true)
     public List<ProductResponse> findMine(String email) {
         User user = requireUser(email);
-        return products.findByOwnerIdOrderByCreatedAtDesc(user.getId()).stream().map(ProductResponse::from).toList();
+        return products.findByOwnerIdOrderByCreatedAtDesc(user.getId()).stream().map(this::response).toList();
     }
 
     @Transactional
@@ -69,7 +70,7 @@ public class ProductService {
         Product product = new Product();
         product.setOwner(requireUser(email));
         apply(product, request);
-        return ProductResponse.from(products.save(product));
+        return response(products.save(product));
     }
 
     @Transactional
@@ -78,7 +79,7 @@ public class ProductService {
         verifyOwnerOrAdmin(product, requireUser(email));
         verifyNoProtectedOrder(product);
         apply(product, request);
-        return ProductResponse.from(products.save(product));
+        return response(products.save(product));
     }
 
     @Transactional
@@ -133,6 +134,12 @@ public class ProductService {
         product.getImages().addAll(request.images());
         product.getDeliveryOptions().clear();
         product.getDeliveryOptions().addAll(request.deliveryOptions());
+    }
+
+    private ProductResponse response(Product product) {
+        boolean reserved = product.getId() != null
+                && orders.existsByProductIdAndStatusIn(product.getId(), RESERVING_ORDER_STATUSES);
+        return ProductResponse.from(product, reserved);
     }
 
     private void validateNearbyRequest(double latitude, double longitude, double radiusKm, int limit) {

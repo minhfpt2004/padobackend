@@ -1,5 +1,6 @@
 package com.oneforall.padobackend;
 
+import com.oneforall.padobackend.repository.ProductRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,6 +20,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -28,6 +31,9 @@ class OrderFlowIntegrationTests {
 
     @Autowired
     MockMvc mvc;
+
+    @Autowired
+    ProductRepository products;
 
     @Test
     void purchaseSaleHistoryStatusAndCancellationFlowWork() throws Exception {
@@ -72,6 +78,12 @@ class OrderFlowIntegrationTests {
                 .andReturn();
         long orderId = extractLong(ID, created.getResponse().getContentAsString());
 
+        mvc.perform(get("/api/products/{id}", productId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sold").value(false))
+                .andExpect(jsonPath("$.reserved").value(true));
+        assertFalse(products.findById(productId).orElseThrow().isSold());
+
         mvc.perform(post("/api/orders")
                         .header("Authorization", bearer(otherToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -86,6 +98,15 @@ class OrderFlowIntegrationTests {
         mvc.perform(get("/api/orders/sales").header("Authorization", bearer(sellerToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(orderId));
+
+        mvc.perform(get("/api/orders/sales/pending").header("Authorization", bearer(sellerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(orderId))
+                .andExpect(jsonPath("$[0].buyerName").value("Test Buyer"));
+
+        mvc.perform(get("/api/orders/sales/pending").header("Authorization", bearer(otherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
 
         mvc.perform(get("/api/orders/{id}", orderId).header("Authorization", bearer(otherToken)))
                 .andExpect(status().isForbidden());
@@ -112,6 +133,16 @@ class OrderFlowIntegrationTests {
                         .content(statusBody("CONFIRMED")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CONFIRMED"));
+
+        mvc.perform(get("/api/products/{id}", productId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sold").value(true))
+                .andExpect(jsonPath("$.reserved").value(false));
+        assertTrue(products.findById(productId).orElseThrow().isSold());
+
+        mvc.perform(get("/api/orders/sales/pending").header("Authorization", bearer(sellerToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
 
         mvc.perform(patch("/api/orders/{id}/status", orderId)
                         .header("Authorization", bearer(sellerToken))
@@ -158,7 +189,8 @@ class OrderFlowIntegrationTests {
 
         mvc.perform(get("/api/products/{id}", cancelledProductId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sold").value(false));
+                .andExpect(jsonPath("$.sold").value(false))
+                .andExpect(jsonPath("$.reserved").value(false));
     }
 
     private void register(String email, String password) throws Exception {

@@ -17,7 +17,8 @@ PENDING --người bán xác nhận--> CONFIRMED --người mua đã nhận--> C
                  -> CANCELLED
 ```
 
-- Tạo đơn sẽ giữ sản phẩm ngay bằng cách đặt `sold=true`.
+- Tạo đơn đặt sản phẩm ở trạng thái giữ chỗ (`reserved=true`) nhưng chưa đánh dấu đã bán.
+- Người bán nhận đơn chờ qua `GET /api/orders/sales/pending`; chỉ khi người bán xác nhận thì sản phẩm mới có `sold=true`.
 - Chỉ người bán hoặc admin được xác nhận đơn.
 - Chỉ người mua hoặc admin được đánh dấu đã nhận hàng.
 - Người mua, người bán hoặc admin có thể hủy đơn đang `PENDING`/`CONFIRMED`.
@@ -59,6 +60,14 @@ GET /api/orders/sales
 ```
 
 Trả về các đơn thuộc sản phẩm người hiện tại đã bán, mới nhất trước.
+
+## Thông báo đơn mới cho người bán
+
+```http
+GET /api/orders/sales/pending
+```
+
+Trả về các đơn `PENDING` của người bán, mới nhất trước. Frontend dùng endpoint này để hiển thị huy hiệu thông báo và làm mới định kỳ. Một đơn không còn xuất hiện sau khi được xác nhận hoặc hủy.
 
 ## Chi tiết đơn hàng
 
