@@ -47,13 +47,9 @@ services:
       - key: VIETQR_TEMPLATE
         value: compact2
       - key: EMAIL_PROVIDER
-        value: resend
-      - key: RESEND_API_KEY
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
+        value: log
       - key: AUTH_OTP_EXPOSE_CODE
-        value: "false"
+        value: "true"
       - key: AUTH_OTP_EXPIRATION_MINUTES
         value: "5"
       - key: AUTH_OTP_RESEND_COOLDOWN_SECONDS

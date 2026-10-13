@@ -12,19 +12,22 @@ OTPs expire after five minutes, have a 60-second resend cooldown, and allow five
 
 ## Email delivery
 
-Real delivery uses Resend entirely from the backend, so the API key is never bundled into frontend JavaScript:
-
-```properties
-EMAIL_PROVIDER=resend
-RESEND_API_KEY=re_...
-EMAIL_FROM=PADO <verify@your-verified-domain.com>
-```
-
-For local development without provider credentials:
+The MVP demo uses a real OTP verification flow but returns the generated OTP to the frontend instead of sending email:
 
 ```properties
 EMAIL_PROVIDER=log
 AUTH_OTP_EXPOSE_CODE=true
 ```
 
-`log` writes the OTP to the backend console. `AUTH_OTP_EXPOSE_CODE` must stay `false` outside local/test environments.
+The password and OTP are still hashed in the database. The account is created only after the returned OTP is verified. Do not use this mode for production.
+
+After a sending domain is verified, enable real Resend delivery entirely from the backend:
+
+```properties
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=re_...
+EMAIL_FROM=PADO <verify@your-verified-domain.com>
+AUTH_OTP_EXPOSE_CODE=false
+```
+
+The Resend API key must never use a `VITE_` prefix or be bundled into frontend JavaScript.

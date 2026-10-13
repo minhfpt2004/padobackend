@@ -31,13 +31,13 @@ Không commit file `.env`. Các secret thật chỉ nhập trong Render Dashboar
 | `SEED_DATA_PASSWORD` | Mật khẩu của các tài khoản seed, tối thiểu 12 ký tự |
 | `VIETQR_ACCOUNT_NUMBER` | Số tài khoản nhận thanh toán |
 | `VIETQR_ACCOUNT_NAME` | Tên chủ tài khoản không dấu |
-| `RESEND_API_KEY` | API key Resend phía server |
-| `EMAIL_FROM` | Người gửi đã được Resend cho phép, ví dụ `PADO <verify@domain.com>` |
 | `CLOUDINARY_CLOUD_NAME` | Cloud name Cloudinary |
 | `CLOUDINARY_API_KEY` | API key Cloudinary |
 | `CLOUDINARY_API_SECRET` | API secret Cloudinary |
 
 `JWT_SECRET` được Render tự sinh và không cần nhập thủ công.
+
+Blueprint hiện dùng chế độ OTP demo (`EMAIL_PROVIDER=log`, `AUTH_OTP_EXPOSE_CODE=true`), vì vậy không cần cấu hình Resend để demo MVP. OTP vẫn được hash/lưu trong database và tài khoản chỉ được tạo sau khi xác minh, nhưng mã được trả về frontend để hiển thị. Trước khi production, phải đổi sang Resend với domain đã xác minh và đặt `AUTH_OTP_EXPOSE_CODE=false`.
 
 ### Kết nối Supabase bắt buộc dùng Session pooler
 
