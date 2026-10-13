@@ -6,11 +6,14 @@ import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -78,6 +81,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ResponseEntity<ApiError> uploadTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         return response(HttpStatus.PAYLOAD_TOO_LARGE, "The upload is too large", request, Map.of());
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<ApiError> unsupportedContentType(HttpMediaTypeNotSupportedException ex,
+                                                    HttpServletRequest request) {
+        return response(HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                "Unsupported content type. Image uploads must use multipart/form-data", request, Map.of());
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    ResponseEntity<ApiError> missingMultipartPart(MissingServletRequestPartException ex,
+                                                  HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "At least one image is required", request, Map.of());
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    ResponseEntity<ApiError> malformedMultipart(MultipartException ex, HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "Invalid multipart upload request", request, Map.of());
     }
 
     @ExceptionHandler({ConflictException.class, DataIntegrityViolationException.class})

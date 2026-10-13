@@ -12,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,10 +37,24 @@ class MediaUploadIntegrationTests {
         String authResponse = AuthTestHelper.registerAndVerify(mvc, email, "StrongPassword123!");
         Matcher matcher = TOKEN.matcher(authResponse);
         if (!matcher.find()) throw new AssertionError("Access token not found");
+        String bearerToken = "Bearer " + matcher.group(1);
+
+        mvc.perform(post("/api/uploads/images")
+                        .header("Authorization", bearerToken)
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.message")
+                        .value("Unsupported content type. Image uploads must use multipart/form-data"));
+
+        mvc.perform(multipart("/api/uploads/images")
+                        .header("Authorization", bearerToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("At least one image is required"));
 
         mvc.perform(multipart("/api/uploads/images")
                         .file(image)
-                        .header("Authorization", "Bearer " + matcher.group(1)))
+                        .header("Authorization", bearerToken))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.message").value("Cloudinary is not configured on the backend"));
     }
