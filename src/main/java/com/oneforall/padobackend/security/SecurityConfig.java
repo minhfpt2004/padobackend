@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/register", "/api/auth/register/verify", "/api/auth/register/resend",
                                 "/api/auth/login", "/api/health", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/locations/search", "/api/locations/reverse").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/membership/plans").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())

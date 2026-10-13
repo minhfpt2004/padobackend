@@ -70,6 +70,11 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request, Map.of());
     }
 
+    @ExceptionHandler(LocationLookupException.class)
+    ResponseEntity<ApiError> locationUnavailable(LocationLookupException ex, HttpServletRequest request) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request, Map.of());
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     ResponseEntity<ApiError> uploadTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
         return response(HttpStatus.PAYLOAD_TOO_LARGE, "The upload is too large", request, Map.of());

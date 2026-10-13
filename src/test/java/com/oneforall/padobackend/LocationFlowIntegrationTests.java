@@ -53,8 +53,15 @@ class LocationFlowIntegrationTests {
                 .andExpect(jsonPath("$.configured").value(true))
                 .andExpect(jsonPath("$.label").value("Quận 7, TP.HCM"))
                 .andExpect(jsonPath("$.source").value("MANUAL"))
-                .andExpect(jsonPath("$.latitude").doesNotExist())
-                .andExpect(jsonPath("$.longitude").doesNotExist());
+                .andExpect(jsonPath("$.latitude").value(10.73))
+                .andExpect(jsonPath("$.longitude").value(106.72))
+                .andExpect(jsonPath("$.accuracy").doesNotExist());
+
+        mvc.perform(put("/api/locations/me")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"label\":\"Quận 3\",\"source\":\"MANUAL\",\"latitude\":10.78}"))
+                .andExpect(status().isBadRequest());
 
         mvc.perform(get("/api/auth/me").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())

@@ -26,6 +26,16 @@ public class ProductController {
         return productService.findAll();
     }
 
+    @GetMapping("/nearby")
+    List<ProductResponse> findNearby(
+            @RequestParam double latitude,
+            @RequestParam double longitude,
+            @RequestParam(defaultValue = "20") double radiusKm,
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        return productService.findNearby(latitude, longitude, radiusKm, limit);
+    }
+
     @GetMapping("/{id}")
     ProductResponse findById(@PathVariable Long id) {
         return productService.findById(id);

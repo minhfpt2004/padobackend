@@ -7,6 +7,7 @@ import com.oneforall.padobackend.entity.OrderStatus;
 import com.oneforall.padobackend.entity.Role;
 import com.oneforall.padobackend.entity.User;
 import com.oneforall.padobackend.exception.ConflictException;
+import com.oneforall.padobackend.exception.BadRequestException;
 import com.oneforall.padobackend.exception.ForbiddenException;
 import com.oneforall.padobackend.exception.ResourceNotFoundException;
 import com.oneforall.padobackend.repository.ProductRepository;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Comparator;
 
 @Service
 public class ProductService {
@@ -35,6 +37,20 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
         return products.findAllByOrderByCreatedAtDesc().stream().map(ProductResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponse> findNearby(double latitude, double longitude, double radiusKm, int limit) {
+        validateNearbyRequest(latitude, longitude, radiusKm, limit);
+        return products.findAllByOrderByCreatedAtDesc().stream()
+                .filter(product -> product.getLatitude() != null && product.getLongitude() != null)
+                .map(product -> new ProductDistance(product, distanceKm(
+                        latitude, longitude, product.getLatitude(), product.getLongitude())))
+                .filter(item -> item.distanceKm() <= radiusKm)
+                .sorted(Comparator.comparingDouble(ProductDistance::distanceKm))
+                .limit(limit)
+                .map(item -> ProductResponse.from(item.product()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +111,9 @@ public class ProductService {
     }
 
     private void apply(Product product, ProductRequest request) {
+        if ((request.latitude() == null) != (request.longitude() == null)) {
+            throw new BadRequestException("Product location requires both latitude and longitude or neither");
+        }
         product.setTitle(request.title().trim());
         product.setBrand(request.brand().trim());
         product.setCategory(request.category().trim());
@@ -114,5 +133,28 @@ public class ProductService {
         product.getImages().addAll(request.images());
         product.getDeliveryOptions().clear();
         product.getDeliveryOptions().addAll(request.deliveryOptions());
+    }
+
+    private void validateNearbyRequest(double latitude, double longitude, double radiusKm, int limit) {
+        if (!Double.isFinite(latitude) || latitude < -90 || latitude > 90
+                || !Double.isFinite(longitude) || longitude < -180 || longitude > 180) {
+            throw new BadRequestException("Invalid location coordinates");
+        }
+        if (!Double.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 200) {
+            throw new BadRequestException("Nearby radius must be between 0 and 200 km");
+        }
+        if (limit < 1 || limit > 100) throw new BadRequestException("Nearby result limit must be between 1 and 100");
+    }
+
+    private double distanceKm(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
+        double latitudeDelta = Math.toRadians(latitudeB - latitudeA);
+        double longitudeDelta = Math.toRadians(longitudeB - longitudeA);
+        double value = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+                + Math.cos(Math.toRadians(latitudeA)) * Math.cos(Math.toRadians(latitudeB))
+                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+        return 6371 * 2 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, value))));
+    }
+
+    private record ProductDistance(Product product, double distanceKm) {
     }
 }

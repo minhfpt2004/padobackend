@@ -33,16 +33,18 @@ public class UserLocationService {
             if (request.latitude() == null || request.longitude() == null || request.accuracy() == null) {
                 throw new BadRequestException("GPS location requires latitude, longitude and accuracy");
             }
-            if (!Double.isFinite(request.latitude()) || !Double.isFinite(request.longitude())
-                    || !Double.isFinite(request.accuracy())) {
-                throw new BadRequestException("Location values must be finite numbers");
-            }
+            validateCoordinates(request.latitude(), request.longitude());
+            if (!Double.isFinite(request.accuracy())) throw new BadRequestException("Location values must be finite numbers");
             user.setLocationLatitude(request.latitude());
             user.setLocationLongitude(request.longitude());
             user.setLocationAccuracy(request.accuracy());
         } else {
-            user.setLocationLatitude(null);
-            user.setLocationLongitude(null);
+            if ((request.latitude() == null) != (request.longitude() == null)) {
+                throw new BadRequestException("Manual location requires both latitude and longitude or neither");
+            }
+            if (request.latitude() != null) validateCoordinates(request.latitude(), request.longitude());
+            user.setLocationLatitude(request.latitude());
+            user.setLocationLongitude(request.longitude());
             user.setLocationAccuracy(null);
         }
         user.setLocationLabel(label);
@@ -66,5 +68,11 @@ public class UserLocationService {
     private User requireUser(String email) {
         return users.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    private void validateCoordinates(Double latitude, Double longitude) {
+        if (latitude == null || longitude == null || !Double.isFinite(latitude) || !Double.isFinite(longitude)) {
+            throw new BadRequestException("Location values must be finite numbers");
+        }
     }
 }

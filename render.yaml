@@ -26,6 +26,12 @@ services:
         value: "60"
       - key: CORS_ALLOWED_ORIGINS
         sync: false
+      - key: GEOCODING_BASE_URL
+        value: https://nominatim.openstreetmap.org
+      - key: GEOCODING_USER_AGENT
+        value: PADO-MVP/1.0
+      - key: GEOCODING_MINIMUM_INTERVAL_MS
+        value: "1100"
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD

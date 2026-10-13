@@ -70,6 +70,19 @@ class BackendMvpIntegrationTests {
                 .andReturn();
         long productId = extractLong(ID, created.getResponse().getContentAsString());
 
+        mvc.perform(get("/api/products/nearby")
+                        .param("latitude", "10.77")
+                        .param("longitude", "106.70")
+                        .param("radiusKm", "1")
+                        .param("limit", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("Vintage Jacket"));
+
+        mvc.perform(get("/api/products/nearby")
+                        .param("latitude", "91")
+                        .param("longitude", "106.70"))
+                .andExpect(status().isBadRequest());
+
         mvc.perform(get("/api/products/{id}", productId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Vintage Jacket"));
