@@ -75,14 +75,30 @@ class OrderFlowIntegrationTests {
                 .andExpect(jsonPath("$.totalAmount").value(335000))
                 .andExpect(jsonPath("$.buyerEmail").value(buyerEmail))
                 .andExpect(jsonPath("$.sellerEmail").value(sellerEmail))
+                .andExpect(jsonPath("$.buyerLatitude").value(10.771))
+                .andExpect(jsonPath("$.distanceKm").isNumber())
                 .andReturn();
         long orderId = extractLong(ID, created.getResponse().getContentAsString());
 
         mvc.perform(get("/api/products/{id}", productId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sold").value(false))
-                .andExpect(jsonPath("$.reserved").value(true));
+                .andExpect(jsonPath("$.sold").value(false));
         assertFalse(products.findById(productId).orElseThrow().isSold());
+
+        mvc.perform(post("/api/orders")
+                        .header("Authorization", bearer(buyerToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(shipOrderBody(productId)))
+                .andExpect(status().isConflict());
+
+        MvcResult otherCreated = mvc.perform(post("/api/orders")
+                        .header("Authorization", bearer(otherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(shipOrderBody(productId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn();
+        long otherOrderId = extractLong(ID, otherCreated.getResponse().getContentAsString());
 
         mvc.perform(post("/api/orders")
                         .header("Authorization", bearer(otherToken))
@@ -97,11 +113,13 @@ class OrderFlowIntegrationTests {
 
         mvc.perform(get("/api/orders/sales").header("Authorization", bearer(sellerToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(orderId));
+                .andExpect(jsonPath("$[0].id").value(otherOrderId))
+                .andExpect(jsonPath("$[1].id").value(orderId));
 
         mvc.perform(get("/api/orders/sales/pending").header("Authorization", bearer(sellerToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(orderId))
+                .andExpect(jsonPath("$[0].id").value(otherOrderId))
+                .andExpect(jsonPath("$[1].id").value(orderId))
                 .andExpect(jsonPath("$[0].buyerName").value("Test Buyer"));
 
         mvc.perform(get("/api/orders/sales/pending").header("Authorization", bearer(otherToken)))
@@ -136,9 +154,13 @@ class OrderFlowIntegrationTests {
 
         mvc.perform(get("/api/products/{id}", productId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sold").value(true))
-                .andExpect(jsonPath("$.reserved").value(false));
+                .andExpect(jsonPath("$.sold").value(true));
         assertTrue(products.findById(productId).orElseThrow().isSold());
+
+        mvc.perform(get("/api/orders/{id}", otherOrderId).header("Authorization", bearer(otherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledAt").exists());
 
         mvc.perform(get("/api/orders/sales/pending").header("Authorization", bearer(sellerToken)))
                 .andExpect(status().isOk())
@@ -189,8 +211,7 @@ class OrderFlowIntegrationTests {
 
         mvc.perform(get("/api/products/{id}", cancelledProductId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.sold").value(false))
-                .andExpect(jsonPath("$.reserved").value(false));
+                .andExpect(jsonPath("$.sold").value(false));
     }
 
     private void register(String email, String password) throws Exception {
@@ -234,7 +255,7 @@ class OrderFlowIntegrationTests {
         return """
                 {"productId":%d,"deliveryType":"SHIP","buyerName":"Test Buyer",
                  "buyerPhone":"0908123456","deliveryAddress":"12 Le Loi, District 1",
-                 "note":"Call before delivery"}
+                 "note":"Call before delivery","buyerLatitude":10.771,"buyerLongitude":106.701}
                 """.formatted(productId);
     }
 

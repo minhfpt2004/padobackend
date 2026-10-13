@@ -23,7 +23,6 @@ import java.util.Comparator;
 public class ProductService {
     private static final List<OrderStatus> PROTECTED_ORDER_STATUSES =
             List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
-    private static final List<OrderStatus> RESERVING_ORDER_STATUSES = List.of(OrderStatus.PENDING);
 
     private final ProductRepository products;
     private final UserRepository users;
@@ -137,9 +136,7 @@ public class ProductService {
     }
 
     private ProductResponse response(Product product) {
-        boolean reserved = product.getId() != null
-                && orders.existsByProductIdAndStatusIn(product.getId(), RESERVING_ORDER_STATUSES);
-        return ProductResponse.from(product, reserved);
+        return ProductResponse.from(product);
     }
 
     private void validateNearbyRequest(double latitude, double longitude, double radiusKm, int limit) {

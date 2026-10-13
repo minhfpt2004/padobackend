@@ -85,6 +85,15 @@ public class PurchaseOrder {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    @Column(name = "buyer_latitude")
+    private Double buyerLatitude;
+
+    @Column(name = "buyer_longitude")
+    private Double buyerLongitude;
+
+    @Column(name = "distance_km")
+    private Double distanceKm;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

@@ -24,8 +24,8 @@ import java.util.List;
 
 @Service
 public class OrderService {
-    private static final List<OrderStatus> BLOCKING_ORDER_STATUSES =
-            List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
+    private static final List<OrderStatus> BUYER_ACTIVE_ORDER_STATUSES =
+            List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED);
 
     private final OrderRepository orders;
     private final ProductRepository products;
@@ -49,8 +49,9 @@ public class OrderService {
         if (product.isSold()) {
             throw new ConflictException("Product is no longer available");
         }
-        if (orders.existsByProductIdAndStatusIn(product.getId(), BLOCKING_ORDER_STATUSES)) {
-            throw new ConflictException("Product already has an active order");
+        if (orders.existsByProductIdAndBuyerIdAndStatusIn(
+                product.getId(), buyer.getId(), BUYER_ACTIVE_ORDER_STATUSES)) {
+            throw new ConflictException("You already have an active order for this product");
         }
         if (!product.getDeliveryOptions().contains(request.deliveryType())) {
             throw new BadRequestException("Selected delivery method is not available for this product");
@@ -64,6 +65,7 @@ public class OrderService {
         if (request.deliveryType() == DeliveryType.MEETUP && meetupLocation == null) {
             throw new BadRequestException("Meetup location is required for direct meetup");
         }
+        validateBuyerCoordinates(request.buyerLatitude(), request.buyerLongitude());
 
         BigDecimal shippingFee = request.deliveryType() == DeliveryType.SHIP
                 ? product.getShippingFee()
@@ -87,6 +89,15 @@ public class OrderService {
         order.setDeliveryAddress(deliveryAddress);
         order.setMeetupLocation(meetupLocation);
         order.setNote(clean(request.note()));
+        order.setBuyerLatitude(request.buyerLatitude());
+        order.setBuyerLongitude(request.buyerLongitude());
+        if (request.buyerLatitude() != null
+                && product.getLatitude() != null
+                && product.getLongitude() != null) {
+            order.setDistanceKm(distanceKm(
+                    product.getLatitude(), product.getLongitude(),
+                    request.buyerLatitude(), request.buyerLongitude()));
+        }
 
         return OrderResponse.from(orders.save(order));
     }
@@ -126,6 +137,9 @@ public class OrderService {
     @Transactional
     public OrderResponse updateStatus(Long id, OrderStatus target, String email) {
         User actor = requireUser(email);
+        if (target == OrderStatus.CONFIRMED) {
+            return confirm(id, actor);
+        }
         PurchaseOrder order = orders.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         verifyParticipantOrAdmin(order, actor);
@@ -135,7 +149,7 @@ public class OrderService {
         }
 
         switch (target) {
-            case CONFIRMED -> confirm(order, actor);
+            case CONFIRMED -> throw new IllegalStateException("Confirmation is handled separately");
             case COMPLETED -> complete(order, actor);
             case CANCELLED -> cancel(order);
             case PENDING -> throw new ConflictException("Order cannot return to pending status");
@@ -144,17 +158,39 @@ public class OrderService {
         return OrderResponse.from(orders.save(order));
     }
 
-    private void confirm(PurchaseOrder order, User actor) {
+    private OrderResponse confirm(Long id, User actor) {
+        PurchaseOrder snapshot = requireOrder(id);
+        verifyParticipantOrAdmin(snapshot, actor);
+        if (snapshot.getStatus() == OrderStatus.CONFIRMED) {
+            return OrderResponse.from(snapshot);
+        }
+        if (!isAdmin(actor) && !snapshot.getSellerId().equals(actor.getId())) {
+            throw new ForbiddenException("Only the seller can confirm this order");
+        }
+
+        Product product = products.findByIdForUpdate(snapshot.getProductId())
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        PurchaseOrder order = orders.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
         if (order.getStatus() != OrderStatus.PENDING) {
             throw invalidTransition(order, OrderStatus.CONFIRMED);
         }
-        if (!isAdmin(actor) && !order.getSellerId().equals(actor.getId())) {
-            throw new ForbiddenException("Only the seller can confirm this order");
+        if (product.isSold()) {
+            throw new ConflictException("Another buyer has already been selected for this product");
         }
-        Product product = products.findByIdForUpdate(order.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+
+        Instant now = Instant.now();
         product.setSold(true);
         order.setStatus(OrderStatus.CONFIRMED);
+        List<PurchaseOrder> otherCandidates = orders
+                .findByProductIdAndStatusAndIdNotOrderByCreatedAtAsc(
+                        order.getProductId(), OrderStatus.PENDING, order.getId());
+        otherCandidates.forEach(candidate -> {
+            candidate.setStatus(OrderStatus.CANCELLED);
+            candidate.setCancelledAt(now);
+        });
+        orders.saveAll(otherCandidates);
+        return OrderResponse.from(orders.save(order));
     }
 
     private void complete(PurchaseOrder order, User actor) {
@@ -172,9 +208,12 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
             throw invalidTransition(order, OrderStatus.CANCELLED);
         }
+        boolean releasesProduct = order.getStatus() == OrderStatus.CONFIRMED;
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancelledAt(Instant.now());
-        products.findByIdForUpdate(order.getProductId()).ifPresent(product -> product.setSold(false));
+        if (releasesProduct) {
+            products.findByIdForUpdate(order.getProductId()).ifPresent(product -> product.setSold(false));
+        }
     }
 
     private ConflictException invalidTransition(PurchaseOrder order, OrderStatus target) {
@@ -204,5 +243,24 @@ public class OrderService {
 
     private String clean(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private void validateBuyerCoordinates(Double latitude, Double longitude) {
+        if ((latitude == null) != (longitude == null)) {
+            throw new BadRequestException("Buyer location requires both latitude and longitude or neither");
+        }
+        if (latitude != null && (!Double.isFinite(latitude) || !Double.isFinite(longitude))) {
+            throw new BadRequestException("Invalid buyer location coordinates");
+        }
+    }
+
+    private double distanceKm(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
+        double latitudeDelta = Math.toRadians(latitudeB - latitudeA);
+        double longitudeDelta = Math.toRadians(longitudeB - longitudeA);
+        double value = Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+                + Math.cos(Math.toRadians(latitudeA)) * Math.cos(Math.toRadians(latitudeB))
+                * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+        double distance = 6371 * 2 * Math.asin(Math.sqrt(Math.min(1, Math.max(0, value))));
+        return Math.round(distance * 100.0) / 100.0;
     }
 }
