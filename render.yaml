@@ -1,0 +1,70 @@
+services:
+  - type: web
+    name: pado-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: JAVA_TOOL_OPTIONS
+        value: -XX:MaxRAMPercentage=75.0
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: DB_POOL_MAX_SIZE
+        value: "5"
+      - key: DB_POOL_MIN_IDLE
+        value: "1"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRATION_MINUTES
+        value: "60"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SEED_DATA_ENABLED
+        value: "true"
+      - key: SEED_DATA_PASSWORD
+        sync: false
+      - key: PAYMENT_MOCK_ENABLED
+        value: "false"
+      - key: VIETQR_BANK_ID
+        value: "970436"
+      - key: VIETQR_BANK_NAME
+        value: Vietcombank
+      - key: VIETQR_ACCOUNT_NUMBER
+        sync: false
+      - key: VIETQR_ACCOUNT_NAME
+        sync: false
+      - key: VIETQR_TEMPLATE
+        value: compact2
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: AUTH_OTP_EXPOSE_CODE
+        value: "false"
+      - key: AUTH_OTP_EXPIRATION_MINUTES
+        value: "5"
+      - key: AUTH_OTP_RESEND_COOLDOWN_SECONDS
+        value: "60"
+      - key: AUTH_OTP_MAX_ATTEMPTS
+        value: "5"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: pado/products

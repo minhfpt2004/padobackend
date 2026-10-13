@@ -26,6 +26,14 @@ class BackendMvpIntegrationTests {
     MockMvc mvc;
 
     @Test
+    void healthCheckIsPublicAndVerifiesTheDatabase() throws Exception {
+        mvc.perform(get("/api/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.database").value("UP"));
+    }
+
+    @Test
     void authenticationCrudOwnershipAndAdminAuthorizationWork() throws Exception {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         String ownerEmail = "owner-" + suffix + "@pado.test";

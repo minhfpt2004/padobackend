@@ -56,7 +56,7 @@ public class SecurityConfig {
                                 writeSecurityError(response, 403, "Forbidden", "You do not have permission")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/register", "/api/auth/register/verify", "/api/auth/register/resend",
-                                "/api/auth/login", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                                "/api/auth/login", "/api/health", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/membership/plans").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
