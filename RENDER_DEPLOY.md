@@ -33,7 +33,7 @@ Không commit file `.env`. Các secret thật chỉ nhập trong Render Dashboar
 | `VIETQR_ACCOUNT_NAME` | Tên chủ tài khoản không dấu |
 | `CLOUDINARY_CLOUD_NAME` | Cloud name Cloudinary |
 | `CLOUDINARY_API_KEY` | API key Cloudinary |
-| `CLOUDINARY_API_SECRET` | API secret Cloudinary |
+| `CLOUDINARY_API_SECRET` | API Secret trong Cloudinary Console; không nhập lại API Key |
 
 `JWT_SECRET` được Render tự sinh và không cần nhập thủ công.
 

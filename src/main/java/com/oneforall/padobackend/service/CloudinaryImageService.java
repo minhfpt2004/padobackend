@@ -12,6 +12,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -73,9 +74,15 @@ public class CloudinaryImageService {
         } catch (MediaStorageException exception) {
             cleanup(uploadedPublicIds);
             throw exception;
+        } catch (RestClientResponseException exception) {
+            cleanup(uploadedPublicIds);
+            throw cloudinaryResponseFailure(exception);
         } catch (IOException | RestClientException exception) {
             cleanup(uploadedPublicIds);
-            throw new MediaStorageException("Could not upload images to Cloudinary", exception);
+            throw new MediaStorageException(
+                    "Could not connect to Cloudinary. Check the backend network and try again",
+                    exception
+            );
         }
     }
 
@@ -147,9 +154,31 @@ public class CloudinaryImageService {
         if (cloudName.isBlank() || apiKey.isBlank() || apiSecret.isBlank()) {
             throw new MediaStorageException("Cloudinary is not configured on the backend");
         }
+        if (apiKey.equals(apiSecret)) {
+            throw new MediaStorageException(
+                    "Cloudinary API secret is invalid. CLOUDINARY_API_SECRET must contain the API Secret, not the API Key"
+            );
+        }
         if (!cloudName.matches("[a-zA-Z0-9_-]+")) {
             throw new MediaStorageException("Cloudinary cloud name is invalid");
         }
+    }
+
+    private MediaStorageException cloudinaryResponseFailure(RestClientResponseException exception) {
+        int status = exception.getStatusCode().value();
+        if (status == 401 || status == 403) {
+            return new MediaStorageException(
+                    "Cloudinary rejected the credentials. Check CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET",
+                    exception
+            );
+        }
+        if (status == 429) {
+            return new MediaStorageException("Cloudinary upload limit was reached. Please try again later", exception);
+        }
+        if (status >= 500) {
+            return new MediaStorageException("Cloudinary is temporarily unavailable. Please try again later", exception);
+        }
+        return new MediaStorageException("Cloudinary rejected the image upload request", exception);
     }
 
     private record CloudinaryUploadResult(
