@@ -4,12 +4,14 @@ services:
     runtime: docker
     plan: free
     region: singapore
+    autoDeployTrigger: commit
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 30
     envVars:
       - key: JAVA_TOOL_OPTIONS
-        value: -XX:MaxRAMPercentage=75.0
+        value: -XX:InitialRAMPercentage=20.0 -XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: SPRING_DATASOURCE_USERNAME
@@ -20,6 +22,14 @@ services:
         value: "5"
       - key: DB_POOL_MIN_IDLE
         value: "1"
+      - key: DB_CONNECTION_TIMEOUT_MS
+        value: "30000"
+      - key: DB_POOL_MAX_LIFETIME_MS
+        value: "600000"
+      - key: DB_POOL_KEEPALIVE_MS
+        value: "120000"
+      - key: SPRING_JPA_HIBERNATE_DDL_AUTO
+        value: update
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRATION_MINUTES
@@ -70,3 +80,7 @@ services:
         sync: false
       - key: CLOUDINARY_FOLDER
         value: pado/products
+      - key: CLOUDINARY_MAX_FILES
+        value: "8"
+      - key: CLOUDINARY_MAX_FILE_BYTES
+        value: "8388608"

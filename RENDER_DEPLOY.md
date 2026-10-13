@@ -1,87 +1,99 @@
 # Deploy PADO Backend lên Render
 
-Backend được đóng gói bằng Docker/Java 21 và triển khai bằng Render Blueprint tại `render.yaml`.
+Backend được đóng gói bằng Docker/Java 21. File `render.yaml` tạo một Web Service gói Free tại Singapore, tự deploy khi nhánh được liên kết có commit mới và kiểm tra sức khỏe qua `/api/health`.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/minhfpt2004/padobackend)
+## 1. Chuẩn bị Supabase
 
-## 1. Đẩy source lên GitHub
+Render không kết nối được direct host IPv6 dạng `db.<project-ref>.supabase.co` nếu project không có IPv4 Add-on. Với project hiện tại, vào Supabase Dashboard:
 
-Đảm bảo các file `Dockerfile`, `.dockerignore`, `render.yaml` và source mới nhất đã có trên nhánh `main` của repository backend.
-
-Không commit file `.env`. Các secret thật chỉ nhập trong Render Dashboard.
-
-## 2. Tạo Blueprint
-
-1. Mở Render Dashboard.
-2. Chọn **New > Blueprint**.
-3. Kết nối repository `minhfpt2004/padobackend`.
-4. Render đọc `render.yaml`, tạo web service `pado-backend` tại Singapore.
-5. Nhập các biến được Render yêu cầu.
-
-## 3. Biến môi trường cần nhập
-
-| Biến | Giá trị cần dùng |
-|---|---|
-| `SPRING_DATASOURCE_URL` | JDBC URL của Supabase **Session pooler**, gồm `sslmode=require` và `currentSchema=pado` |
-| `SPRING_DATASOURCE_USERNAME` | Username Session pooler, thường có dạng `postgres.<project-ref>` |
-| `SPRING_DATASOURCE_PASSWORD` | Password database Supabase |
-| `CORS_ALLOWED_ORIGINS` | Origin frontend production, không có dấu `/` cuối URL; có thể phân tách nhiều origin bằng dấu phẩy |
-| `ADMIN_EMAIL` | Email admin bootstrap |
-| `ADMIN_PASSWORD` | Mật khẩu admin mạnh, tối thiểu 12 ký tự |
-| `SEED_DATA_PASSWORD` | Mật khẩu của các tài khoản seed, tối thiểu 12 ký tự |
-| `VIETQR_ACCOUNT_NUMBER` | Số tài khoản nhận thanh toán |
-| `VIETQR_ACCOUNT_NAME` | Tên chủ tài khoản không dấu |
-| `CLOUDINARY_CLOUD_NAME` | Cloud name Cloudinary |
-| `CLOUDINARY_API_KEY` | API key Cloudinary |
-| `CLOUDINARY_API_SECRET` | API Secret trong Cloudinary Console; không nhập lại API Key |
-
-`JWT_SECRET` được Render tự sinh và không cần nhập thủ công.
-
-Blueprint hiện dùng chế độ OTP demo (`EMAIL_PROVIDER=log`, `AUTH_OTP_EXPOSE_CODE=true`), vì vậy không cần cấu hình Resend để demo MVP. OTP vẫn được hash/lưu trong database và tài khoản chỉ được tạo sau khi xác minh, nhưng mã được trả về frontend để hiển thị. Trước khi production, phải đổi sang Resend với domain đã xác minh và đặt `AUTH_OTP_EXPOSE_CODE=false`.
-
-### Kết nối Supabase bắt buộc dùng Session pooler
-
-Render không hỗ trợ kết nối outbound IPv6, còn direct host `db.<project-ref>.supabase.co` của Supabase mặc định là IPv6. Không dùng direct JDBC URL đang dùng ở máy local cho Render.
-
-Trong Supabase Dashboard:
-
-1. Mở project, chọn **Connect**.
+1. Chọn **Connect**.
 2. Chọn **Session pooler**.
-3. Lấy host, port `5432` và username mà Supabase hiển thị.
-4. Nhập URL trên Render theo dạng dưới đây; không đặt password trực tiếp trong URL:
+3. Sao chép đúng host `aws-...pooler.supabase.com`, port `5432` và username.
+
+Giá trị nhập trên Render:
 
 ```properties
-SPRING_DATASOURCE_URL=jdbc:postgresql://<session-pooler-host>:5432/postgres?sslmode=require&currentSchema=pado
-SPRING_DATASOURCE_USERNAME=postgres.<project-ref>
-SPRING_DATASOURCE_PASSWORD=<database-password>
+SPRING_DATASOURCE_URL=jdbc:postgresql://<SESSION_POOLER_HOST>:5432/postgres?sslmode=require&currentSchema=pado
+SPRING_DATASOURCE_USERNAME=postgres.hfwmxrrfxsmfhewffemc
+SPRING_DATASOURCE_PASSWORD=<MAT_KHAU_DATABASE_MOI>
 ```
 
-## 4. Kiểm tra sau deploy
+Không dùng `db.hfwmxrrfxsmfhewffemc.supabase.co` trên Render trừ khi Supabase đã bật IPv4 Add-on.
 
-Thay `<backend-domain>` bằng domain Render cấp:
+Hibernate đang dùng `ddl-auto=update`, vì vậy lần khởi động đầu sẽ tự tạo/cập nhật bảng và các cột mới. Seed data vẫn được cập nhật với `SEED_DATA_ENABLED=true`, không xóa dữ liệu người dùng hiện có.
+
+## 2. Tạo Backend Blueprint
+
+1. Push nhánh `main` mới nhất lên repository `minhfpt2004/padobackend`.
+2. Trong Render chọn **New > Blueprint**.
+3. Chọn repository backend và file `render.yaml` ở thư mục gốc.
+4. Nhập các biến `sync: false` bên dưới rồi tạo service.
+
+### Biến bắt buộc
+
+| Biến                         | Giá trị                                               |
+| ---------------------------- | ----------------------------------------------------- |
+| `SPRING_DATASOURCE_URL`      | JDBC URL Session pooler như trên                      |
+| `SPRING_DATASOURCE_USERNAME` | `postgres.hfwmxrrfxsmfhewffemc`                       |
+| `SPRING_DATASOURCE_PASSWORD` | Mật khẩu database Supabase                            |
+| `CORS_ALLOWED_ORIGINS`       | URL frontend Render, không có `/` cuối                |
+| `ADMIN_EMAIL`                | Email admin demo                                      |
+| `ADMIN_PASSWORD`             | Mật khẩu admin tối thiểu 12 ký tự                     |
+| `SEED_DATA_PASSWORD`         | Mật khẩu chung cho tài khoản seed, tối thiểu 12 ký tự |
+| `VIETQR_ACCOUNT_NUMBER`      | Số tài khoản nhận chuyển khoản                        |
+| `VIETQR_ACCOUNT_NAME`        | Tên chủ tài khoản không dấu                           |
+| `CLOUDINARY_CLOUD_NAME`      | Cloud name Cloudinary                                 |
+| `CLOUDINARY_API_KEY`         | API key Cloudinary                                    |
+| `CLOUDINARY_API_SECRET`      | API Secret Cloudinary, không phải API key             |
+
+`JWT_SECRET` được Render tự sinh. Không commit `.env`, mật khẩu, Resend key hoặc Cloudinary secret vào Git.
+
+Blueprint hiện giữ chế độ OTP demo:
+
+```properties
+EMAIL_PROVIDER=log
+AUTH_OTP_EXPOSE_CODE=true
+```
+
+OTP được trả về frontend để demo MVP. Khi có domain gửi email đã xác minh, đổi sang:
+
+```properties
+EMAIL_PROVIDER=resend
+AUTH_OTP_EXPOSE_CODE=false
+RESEND_API_KEY=<KEY_MOI_CHI_DAT_O_BACKEND>
+EMAIL_FROM=PADO <verify@ten-mien-da-xac-minh>
+```
+
+Không dùng biến `VITE_RESEND_API_KEY`: mọi biến `VITE_*` đều có thể bị đóng gói vào trình duyệt. Key Resend đã từng chia sẻ công khai nên cần thu hồi và tạo key mới trước khi dùng production.
+
+## 3. Kiểm tra backend sau deploy
 
 ```text
-https://<backend-domain>/api/health
-https://<backend-domain>/api/products
-https://<backend-domain>/swagger-ui/index.html
+https://<backend-service>.onrender.com/api/health
+https://<backend-service>.onrender.com/api/products
+https://<backend-service>.onrender.com/swagger-ui/index.html
 ```
 
-Health check thành công trả về:
+Health check hợp lệ:
 
 ```json
-{"status":"UP","database":"UP"}
+{ "status": "UP", "database": "UP" }
 ```
 
-## 5. Nối frontend production
+Nếu deploy báo lỗi kết nối database, kiểm tra lại Session pooler host, username có hậu tố project ref và `sslmode=require`.
 
-Đặt biến môi trường khi deploy frontend:
+## 4. Nối frontend
+
+Frontend cần:
 
 ```properties
-VITE_API_BASE_URL=https://<backend-domain>/api
+VITE_API_BASE_URL=https://<backend-service>.onrender.com/api
 ```
 
-Sau khi biết domain frontend, cập nhật `CORS_ALLOWED_ORIGINS` trên Render bằng đúng origin đó rồi redeploy backend. Ví dụ:
+Sau khi Render cấp URL frontend, cập nhật backend:
 
-```text
-https://pado-shop.example.com
+```properties
+CORS_ALLOWED_ORIGINS=https://<frontend-service>.onrender.com
 ```
+
+Có thể khai báo nhiều origin bằng dấu phẩy.
