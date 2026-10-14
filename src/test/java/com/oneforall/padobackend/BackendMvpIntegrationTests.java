@@ -27,6 +27,11 @@ class BackendMvpIntegrationTests {
 
     @Test
     void healthCheckIsPublicAndVerifiesTheDatabase() throws Exception {
+        mvc.perform(get("/"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.service").value("PADO Backend API"))
+                .andExpect(jsonPath("$.health").value("/api/health"));
+
         mvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"))

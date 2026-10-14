@@ -55,7 +55,7 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, exception) ->
                                 writeSecurityError(response, 403, "Forbidden", "You do not have permission")))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/register", "/api/auth/register/verify", "/api/auth/register/resend",
+                        .requestMatchers("/", "/api/auth/register", "/api/auth/register/verify", "/api/auth/register/resend",
                                 "/api/auth/login", "/api/health", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/locations/search", "/api/locations/reverse").permitAll()
