@@ -36,7 +36,7 @@ Hibernate đang dùng `ddl-auto=update`, vì vậy lần khởi động đầu s
 | `SPRING_DATASOURCE_URL`      | JDBC URL Session pooler như trên                      |
 | `SPRING_DATASOURCE_USERNAME` | `postgres.hfwmxrrfxsmfhewffemc`                       |
 | `SPRING_DATASOURCE_PASSWORD` | Mật khẩu database Supabase                            |
-| `CORS_ALLOWED_ORIGINS`       | URL frontend Render, không có `/` cuối                |
+| `CORS_ALLOWED_ORIGINS`       | Các URL frontend, phân cách bằng dấu phẩy, không có `/` cuối |
 | `ADMIN_EMAIL`                | Email admin demo                                      |
 | `ADMIN_PASSWORD`             | Mật khẩu admin tối thiểu 12 ký tự                     |
 | `SEED_DATA_PASSWORD`         | Mật khẩu chung cho tài khoản seed, tối thiểu 12 ký tự |
@@ -93,7 +93,7 @@ VITE_API_BASE_URL=https://<backend-service>.onrender.com/api
 Sau khi Render cấp URL frontend, cập nhật backend:
 
 ```properties
-CORS_ALLOWED_ORIGINS=https://pado-shop.onrender.com
+CORS_ALLOWED_ORIGINS=https://pado-shop.netlify.app,https://pado-shop.onrender.com
 ```
 
 Có thể khai báo nhiều origin bằng dấu phẩy.

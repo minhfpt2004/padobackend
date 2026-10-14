@@ -27,6 +27,12 @@ class BackendMvpIntegrationTests {
 
     @Test
     void healthCheckIsPublicAndVerifiesTheDatabase() throws Exception {
+        mvc.perform(options("/api/products")
+                        .header("Origin", "https://pado-shop.netlify.app")
+                        .header("Access-Control-Request-Method", "GET"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "https://pado-shop.netlify.app"));
+
         mvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.service").value("PADO Backend API"))
