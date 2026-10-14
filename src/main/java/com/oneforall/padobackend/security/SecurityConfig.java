@@ -23,6 +23,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Configuration
 @EnableMethodSecurity
@@ -68,15 +69,30 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins}") String allowedOrigins) {
+            @Value("${app.cors.allowed-origins}") String allowedOrigins,
+            @Value("${app.cors.required-origins:https://pado-shop.netlify.app}") String requiredOrigins) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
+        config.setAllowedOrigins(Stream.concat(
+                        Arrays.stream(requiredOrigins.split(",")),
+                        Arrays.stream(allowedOrigins.split(",")))
+                .map(SecurityConfig::normalizeOrigin)
+                .filter(origin -> !origin.isEmpty())
+                .distinct()
+                .toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    private static String normalizeOrigin(String origin) {
+        String normalized = origin.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private static void writeSecurityError(HttpServletResponse response, int status, String error, String message)

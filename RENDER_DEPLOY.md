@@ -37,6 +37,7 @@ Hibernate đang dùng `ddl-auto=update`, vì vậy lần khởi động đầu s
 | `SPRING_DATASOURCE_USERNAME` | `postgres.hfwmxrrfxsmfhewffemc`                       |
 | `SPRING_DATASOURCE_PASSWORD` | Mật khẩu database Supabase                            |
 | `CORS_ALLOWED_ORIGINS`       | Các URL frontend, phân cách bằng dấu phẩy, không có `/` cuối |
+| `CORS_REQUIRED_ORIGINS`      | URL frontend production luôn được phép, mặc định là `https://pado-shop.netlify.app` |
 | `ADMIN_EMAIL`                | Email admin demo                                      |
 | `ADMIN_PASSWORD`             | Mật khẩu admin tối thiểu 12 ký tự                     |
 | `SEED_DATA_PASSWORD`         | Mật khẩu chung cho tài khoản seed, tối thiểu 12 ký tự |
@@ -94,6 +95,7 @@ Sau khi Render cấp URL frontend, cập nhật backend:
 
 ```properties
 CORS_ALLOWED_ORIGINS=https://pado-shop.netlify.app,https://pado-shop.onrender.com
+CORS_REQUIRED_ORIGINS=https://pado-shop.netlify.app
 ```
 
 Có thể khai báo nhiều origin bằng dấu phẩy.

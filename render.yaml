@@ -34,6 +34,8 @@ services:
         generateValue: true
       - key: JWT_EXPIRATION_MINUTES
         value: "60"
+      - key: CORS_REQUIRED_ORIGINS
+        value: https://pado-shop.netlify.app
       - key: CORS_ALLOWED_ORIGINS
         value: https://pado-shop.netlify.app,https://pado-shop.onrender.com,http://localhost:3000,http://localhost:5173
       - key: GEOCODING_BASE_URL
