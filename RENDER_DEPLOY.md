@@ -93,7 +93,7 @@ VITE_API_BASE_URL=https://<backend-service>.onrender.com/api
 Sau khi Render cấp URL frontend, cập nhật backend:
 
 ```properties
-CORS_ALLOWED_ORIGINS=https://<frontend-service>.onrender.com
+CORS_ALLOWED_ORIGINS=https://pado-shop.onrender.com
 ```
 
 Có thể khai báo nhiều origin bằng dấu phẩy.
