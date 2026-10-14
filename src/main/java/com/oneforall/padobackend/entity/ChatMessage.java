@@ -19,7 +19,7 @@ import lombok.Setter;
 import java.time.Instant;
 
 @Entity
-@Table(name = "chat_messages", indexes = {
+@Table(name = "user_chat_messages", indexes = {
         @Index(name = "idx_chat_message_conversation", columnList = "conversation_id, created_at"),
         @Index(name = "idx_chat_message_unread", columnList = "conversation_id, read_at")
 })

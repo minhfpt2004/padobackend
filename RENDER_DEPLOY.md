@@ -13,12 +13,12 @@ Render không kết nối được direct host IPv6 dạng `db.<project-ref>.sup
 Giá trị nhập trên Render:
 
 ```properties
-SPRING_DATASOURCE_URL=jdbc:postgresql://<SESSION_POOLER_HOST>:5432/postgres?sslmode=require&currentSchema=pado
+SPRING_DATASOURCE_URL=jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require
 SPRING_DATASOURCE_USERNAME=postgres.hfwmxrrfxsmfhewffemc
 SPRING_DATASOURCE_PASSWORD=<MAT_KHAU_DATABASE_MOI>
 ```
 
-Không dùng `db.hfwmxrrfxsmfhewffemc.supabase.co` trên Render trừ khi Supabase đã bật IPv4 Add-on.
+Không dùng `db.hfwmxrrfxsmfhewffemc.supabase.co` trên Render trừ khi Supabase đã bật IPv4 Add-on. Project này đã được kiểm tra thực tế với cluster `aws-1`; `aws-0` sẽ trả lỗi `tenant/user ... not found`.
 
 Hibernate đang dùng `ddl-auto=update`, vì vậy lần khởi động đầu sẽ tự tạo/cập nhật bảng và các cột mới. Seed data vẫn được cập nhật với `SEED_DATA_ENABLED=true`, không xóa dữ liệu người dùng hiện có.
 
