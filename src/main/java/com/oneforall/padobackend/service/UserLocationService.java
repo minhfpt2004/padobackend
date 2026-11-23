@@ -2,6 +2,8 @@ package com.oneforall.padobackend.service;
 
 import com.oneforall.padobackend.dto.UpdateUserLocationRequest;
 import com.oneforall.padobackend.dto.UserLocationResponse;
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.LocationSource;
 import com.oneforall.padobackend.entity.User;
 import com.oneforall.padobackend.exception.BadRequestException;
@@ -11,13 +13,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 
 @Service
 public class UserLocationService {
     private final UserRepository users;
+    private final AuditService auditService;
 
-    public UserLocationService(UserRepository users) {
+    public UserLocationService(UserRepository users, AuditService auditService) {
         this.users = users;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -50,7 +55,13 @@ public class UserLocationService {
         user.setLocationLabel(label);
         user.setLocationSource(request.source());
         user.setLocationUpdatedAt(Instant.now());
-        return UserLocationResponse.from(users.save(user));
+        User saved = users.save(user);
+        auditService.recordSuccess(AuditEventType.USER_LOCATION_UPDATED, saved,
+                AuditTargetType.LOCATION, saved.getId(), Map.of(
+                        "source", request.source().name(),
+                        "hasCoordinates", request.latitude() != null
+                ));
+        return UserLocationResponse.from(saved);
     }
 
     @Transactional
@@ -62,7 +73,10 @@ public class UserLocationService {
         user.setLocationAccuracy(null);
         user.setLocationSource(null);
         user.setLocationUpdatedAt(null);
-        return UserLocationResponse.from(users.save(user));
+        User saved = users.save(user);
+        auditService.recordSuccess(AuditEventType.USER_LOCATION_CLEARED, saved,
+                AuditTargetType.LOCATION, saved.getId(), Map.of());
+        return UserLocationResponse.from(saved);
     }
 
     private User requireUser(String email) {

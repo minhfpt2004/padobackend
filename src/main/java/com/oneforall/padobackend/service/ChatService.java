@@ -3,6 +3,8 @@ package com.oneforall.padobackend.service;
 import com.oneforall.padobackend.dto.ChatConversationResponse;
 import com.oneforall.padobackend.dto.ChatMessageResponse;
 import com.oneforall.padobackend.dto.MarkMessagesReadResponse;
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.ChatConversation;
 import com.oneforall.padobackend.entity.ChatMessage;
 import com.oneforall.padobackend.entity.Product;
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ChatService {
@@ -30,14 +33,17 @@ public class ChatService {
     private final ProductRepository products;
     private final UserRepository users;
     private final OrderRepository orders;
+    private final AuditService auditService;
 
     public ChatService(ChatConversationRepository conversations, ChatMessageRepository messages,
-                       ProductRepository products, UserRepository users, OrderRepository orders) {
+                       ProductRepository products, UserRepository users, OrderRepository orders,
+                       AuditService auditService) {
         this.conversations = conversations;
         this.messages = messages;
         this.products = products;
         this.users = users;
         this.orders = orders;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -53,6 +59,9 @@ public class ChatService {
         User actor = requireUser(email);
         Product product = products.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        if (product.isModerationHidden()) {
+            throw new ConflictException("Product is not available for new conversations");
+        }
 
         User buyer;
         if (product.getOwner().getId().equals(actor.getId())) {
@@ -72,13 +81,20 @@ public class ChatService {
         }
 
         ChatConversation conversation = conversations.findByProductIdAndBuyerId(productId, buyer.getId())
-                .orElseGet(() -> {
-                    ChatConversation created = new ChatConversation();
-                    created.setProduct(product);
-                    created.setBuyer(buyer);
-                    created.setSeller(product.getOwner());
-                    return conversations.save(created);
-                });
+                .orElse(null);
+        if (conversation == null) {
+            conversation = new ChatConversation();
+            conversation.setProduct(product);
+            conversation.setBuyer(buyer);
+            conversation.setSeller(product.getOwner());
+            conversation = conversations.save(conversation);
+            auditService.recordSuccess(AuditEventType.CONVERSATION_CREATED, actor,
+                    AuditTargetType.CONVERSATION, conversation.getId(), Map.of(
+                            "productId", product.getId(),
+                            "buyerUserId", buyer.getId(),
+                            "sellerUserId", product.getOwner().getId()
+                    ));
+        }
         return summarize(conversation, actor.getId());
     }
 
@@ -105,6 +121,11 @@ public class ChatService {
         ChatMessage saved = messages.save(message);
         conversation.touch();
         conversations.save(conversation);
+        auditService.recordSuccess(AuditEventType.CHAT_MESSAGE_SENT, actor,
+                AuditTargetType.MESSAGE, saved.getId(), Map.of(
+                        "conversationId", conversation.getId(),
+                        "contentLength", saved.getContent().length()
+                ));
         return ChatMessageResponse.from(saved, actor.getId());
     }
 
@@ -114,6 +135,10 @@ public class ChatService {
         ChatConversation conversation = requireConversation(conversationId);
         verifyParticipant(conversation, actor);
         int updated = messages.markIncomingAsRead(conversationId, actor.getId(), Instant.now());
+        if (updated > 0) {
+            auditService.recordSuccess(AuditEventType.CHAT_MESSAGES_READ, actor,
+                    AuditTargetType.CONVERSATION, conversationId, Map.of("messageCount", updated));
+        }
         return new MarkMessagesReadResponse(updated);
     }
 

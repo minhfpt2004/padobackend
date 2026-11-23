@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="PADO Admin Audit Console">
+    <title>PADO · Audit Console</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="ambient ambient-one" aria-hidden="true"></div>
+<div class="ambient ambient-two" aria-hidden="true"></div>
+
+<main id="loginView" class="login-shell">
+    <section class="login-card" aria-labelledby="loginTitle">
+        <div class="brand-mark" aria-hidden="true"><span>P</span></div>
+        <p class="eyebrow">PADO OPERATIONS</p>
+        <h1 id="loginTitle">Audit Console</h1>
+        <p class="login-copy">Theo dõi mọi thay đổi quan trọng trong hệ thống từ một nơi duy nhất.</p>
+
+        <form id="loginForm" class="login-form">
+            <label>
+                <span>Email quản trị</span>
+                <input id="loginEmail" name="email" type="email" autocomplete="username"
+                       placeholder="admin@pado.test" required>
+            </label>
+            <label>
+                <span>Mật khẩu</span>
+                <input id="loginPassword" name="password" type="password" autocomplete="current-password"
+                       placeholder="Nhập mật khẩu" required>
+            </label>
+            <p id="loginError" class="form-error" role="alert" hidden></p>
+            <button id="loginButton" class="button button-primary button-wide" type="submit">
+                <span>Đăng nhập an toàn</span>
+                <span aria-hidden="true">→</span>
+            </button>
+        </form>
+        <p class="security-note"><span aria-hidden="true">●</span> Dữ liệu audit chỉ hiển thị cho tài khoản ADMIN.</p>
+    </section>
+
+    <section class="login-context" aria-hidden="true">
+        <div class="context-grid"></div>
+        <div class="context-content">
+            <p>CONTROL ROOM / 06</p>
+            <h2>Biết điều gì đã xảy ra.<br>Hiểu vì sao nó xảy ra.</h2>
+            <div class="signal-list">
+                <span>AUTH</span><span>ORDERS</span><span>MEMBERSHIP</span><span>ADMIN</span>
+            </div>
+        </div>
+    </section>
+</main>
+
+<div id="appView" class="app-shell" hidden>
+    <header class="topbar">
+        <a class="wordmark" href="/admin/audit/" aria-label="PADO Audit Console">
+            <span class="wordmark-icon">P</span>
+            <span><strong>PADO</strong><small>AUDIT CONSOLE</small></span>
+        </a>
+        <div class="topbar-status">
+            <span class="live-dot" aria-hidden="true"></span>
+            <span>Hệ thống trực tuyến</span>
+        </div>
+        <div class="admin-menu">
+            <div class="admin-copy">
+                <strong id="adminEmail">Admin</strong>
+                <span>Quản trị viên</span>
+            </div>
+            <button id="logoutButton" class="icon-button" type="button" title="Đăng xuất" aria-label="Đăng xuất">
+                ↗
+            </button>
+        </div>
+    </header>
+
+    <div class="workspace">
+        <aside class="sidebar">
+            <div class="sidebar-heading">
+                <p class="eyebrow">BỘ LỌC</p>
+                <button id="resetFilters" class="text-button" type="button">Đặt lại</button>
+            </div>
+            <form id="filterForm" class="filter-form">
+                <label>
+                    <span>Tìm theo email</span>
+                    <input id="actorEmailFilter" type="email" placeholder="customer@pado.vn">
+                </label>
+                <div class="two-fields">
+                    <label>
+                        <span>Actor ID</span>
+                        <input id="actorIdFilter" type="number" min="1" placeholder="—">
+                    </label>
+                    <label>
+                        <span>Customer ID</span>
+                        <input id="subjectIdFilter" type="number" min="1" placeholder="—">
+                    </label>
+                </div>
+                <label>
+                    <span>Nhóm sự kiện</span>
+                    <select id="categoryFilter"><option value="">Tất cả nhóm</option></select>
+                </label>
+                <label>
+                    <span>Loại sự kiện</span>
+                    <select id="eventTypeFilter"><option value="">Tất cả sự kiện</option></select>
+                </label>
+                <div class="two-fields">
+                    <label>
+                        <span>Kết quả</span>
+                        <select id="outcomeFilter">
+                            <option value="">Tất cả</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>Nguồn</span>
+                        <select id="sourceFilter"><option value="">Tất cả</option></select>
+                    </label>
+                </div>
+                <label>
+                    <span>Request ID</span>
+                    <input id="requestIdFilter" type="text" maxlength="64" placeholder="web-req_123">
+                </label>
+                <label>
+                    <span>Từ thời điểm</span>
+                    <input id="fromFilter" type="datetime-local">
+                </label>
+                <label>
+                    <span>Đến thời điểm</span>
+                    <input id="toFilter" type="datetime-local">
+                </label>
+                <button class="button button-primary button-wide" type="submit">Áp dụng bộ lọc</button>
+            </form>
+        </aside>
+
+        <main class="content">
+            <section class="page-heading">
+                <div>
+                    <p class="eyebrow">ACTIVITY LEDGER</p>
+                    <h1>Nhật ký hệ thống</h1>
+                    <p>Điều tra hoạt động, đối chiếu request và theo dõi timeline khách hàng.</p>
+                </div>
+                <button id="refreshButton" class="button button-secondary" type="button">
+                    <span aria-hidden="true">↻</span> Làm mới
+                </button>
+            </section>
+
+            <section class="metric-grid" aria-label="Tổng quan trang hiện tại">
+                <article class="metric-card metric-primary">
+                    <span>Tổng sự kiện</span>
+                    <strong id="totalEvents">—</strong>
+                    <small>khớp bộ lọc</small>
+                </article>
+                <article class="metric-card">
+                    <span>Thành công</span>
+                    <strong id="successEvents">—</strong>
+                    <small>trên trang hiện tại</small>
+                </article>
+                <article class="metric-card">
+                    <span>Thất bại</span>
+                    <strong id="failureEvents">—</strong>
+                    <small>cần chú ý</small>
+                </article>
+                <article class="metric-card">
+                    <span>Khách liên quan</span>
+                    <strong id="uniqueSubjects">—</strong>
+                    <small>trên trang hiện tại</small>
+                </article>
+            </section>
+
+            <section class="ledger-card">
+                <div class="ledger-toolbar">
+                    <div>
+                        <h2>Event stream</h2>
+                        <p id="resultSummary">Đang tải dữ liệu…</p>
+                    </div>
+                    <label class="page-size-control">
+                        <span>Hiển thị</span>
+                        <select id="pageSize">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div id="tableLoading" class="table-state">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <p>Đang đồng bộ event stream…</p>
+                </div>
+                <div id="emptyState" class="table-state" hidden>
+                    <span class="empty-glyph" aria-hidden="true">⌁</span>
+                    <h3>Không tìm thấy sự kiện</h3>
+                    <p>Thử nới lỏng bộ lọc hoặc chọn khoảng thời gian khác.</p>
+                </div>
+
+                <div id="tableWrap" class="table-wrap" hidden>
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Thời gian</th>
+                            <th>Sự kiện</th>
+                            <th>Người thực hiện</th>
+                            <th>Đối tượng</th>
+                            <th>Kết quả</th>
+                            <th><span class="sr-only">Thao tác</span></th>
+                        </tr>
+                        </thead>
+                        <tbody id="eventRows"></tbody>
+                    </table>
+                </div>
+
+                <nav id="pagination" class="pagination" aria-label="Phân trang" hidden>
+                    <button id="previousPage" class="page-button" type="button">← Trước</button>
+                    <span id="pageIndicator">Trang 1 / 1</span>
+                    <button id="nextPage" class="page-button" type="button">Sau →</button>
+                </nav>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="drawerBackdrop" class="drawer-backdrop" hidden></div>
+<aside id="detailDrawer" class="detail-drawer" aria-labelledby="detailTitle" aria-hidden="true">
+    <div class="drawer-header">
+        <div>
+            <p class="eyebrow">EVENT DETAIL</p>
+            <h2 id="detailTitle">Chi tiết sự kiện</h2>
+        </div>
+        <button id="closeDrawer" class="icon-button" type="button" aria-label="Đóng">×</button>
+    </div>
+    <div id="detailContent" class="drawer-content"></div>
+</aside>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+<script src="./app.js" defer></script>
+</body>
+</html>

@@ -1,9 +1,12 @@
 package com.oneforall.padobackend.config;
 
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.OrderStatus;
 import com.oneforall.padobackend.entity.PurchaseOrder;
 import com.oneforall.padobackend.repository.OrderRepository;
 import com.oneforall.padobackend.repository.ProductRepository;
+import com.oneforall.padobackend.service.AuditService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -20,10 +23,13 @@ public class OrderProductStateReconciler implements ApplicationRunner {
 
     private final OrderRepository orders;
     private final ProductRepository products;
+    private final AuditService auditService;
 
-    public OrderProductStateReconciler(OrderRepository orders, ProductRepository products) {
+    public OrderProductStateReconciler(OrderRepository orders, ProductRepository products,
+                                       AuditService auditService) {
         this.orders = orders;
         this.products = products;
+        this.auditService = auditService;
     }
 
     @Override
@@ -50,6 +56,9 @@ public class OrderProductStateReconciler implements ApplicationRunner {
         }
         if (updated > 0) {
             log.info("Reconciled sold state for {} products from existing orders", updated);
+            auditService.recordSystemSuccess(AuditEventType.PRODUCT_STATE_RECONCILED,
+                    AuditTargetType.SYSTEM, "order-product-state",
+                    Map.of("updatedProductCount", updated));
         }
     }
 

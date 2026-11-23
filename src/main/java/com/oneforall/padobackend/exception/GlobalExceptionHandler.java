@@ -4,6 +4,7 @@ import com.oneforall.padobackend.dto.ApiError;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -17,6 +18,7 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -41,6 +43,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConstraintViolationException.class)
     ResponseEntity<ApiError> constraint(ConstraintViolationException ex, HttpServletRequest request) {
         return response(HttpStatus.BAD_REQUEST, "Request validation failed", request, Map.of());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiError> invalidParameter(MethodArgumentTypeMismatchException ex,
+                                              HttpServletRequest request) {
+        return response(HttpStatus.BAD_REQUEST, "Invalid value for parameter " + ex.getName(), request, Map.of());
     }
 
     @ExceptionHandler(BadRequestException.class)
@@ -101,7 +109,8 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.BAD_REQUEST, "Invalid multipart upload request", request, Map.of());
     }
 
-    @ExceptionHandler({ConflictException.class, DataIntegrityViolationException.class})
+    @ExceptionHandler({ConflictException.class, DataIntegrityViolationException.class,
+            OptimisticLockingFailureException.class})
     ResponseEntity<ApiError> conflict(Exception ex, HttpServletRequest request) {
         String message = ex instanceof ConflictException ? ex.getMessage() : "Data conflict";
         return response(HttpStatus.CONFLICT, message, request, Map.of());

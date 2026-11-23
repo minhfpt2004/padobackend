@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -71,11 +73,19 @@ public class Product {
     @Column(nullable = false)
     private boolean sold;
 
+    @Column(name = "moderation_hidden", nullable = false)
+    @ColumnDefault("false")
+    private boolean moderationHidden;
+
+    @Column(name = "moderation_reason", length = 2000)
+    private String moderationReason;
+
     @ElementCollection
     @CollectionTable(name = "product_images", joinColumns = @JoinColumn(name = "product_id"),
             foreignKey = @ForeignKey(name = "fk_product_images_product"))
     @Column(name = "image_url", nullable = false, length = 2048)
     @OrderColumn(name = "display_order")
+    @BatchSize(size = 50)
     private List<String> images = new ArrayList<>();
 
     @ElementCollection(targetClass = DeliveryType.class)
@@ -83,6 +93,7 @@ public class Product {
             foreignKey = @ForeignKey(name = "fk_product_delivery_product"))
     @Enumerated(EnumType.STRING)
     @Column(name = "delivery_type", nullable = false, length = 20)
+    @BatchSize(size = 50)
     private Set<DeliveryType> deliveryOptions = new LinkedHashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

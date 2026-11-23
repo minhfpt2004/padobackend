@@ -1,0 +1,62 @@
+package com.oneforall.padobackend.entity;
+
+import lombok.Getter;
+
+@Getter
+public enum AuditEventType {
+    REGISTRATION_STARTED(AuditCategory.AUTHENTICATION),
+    REGISTRATION_VERIFIED(AuditCategory.AUTHENTICATION),
+    OTP_RESENT(AuditCategory.AUTHENTICATION),
+    OTP_VERIFICATION_FAILED(AuditCategory.AUTHENTICATION),
+    LOGIN_SUCCEEDED(AuditCategory.AUTHENTICATION),
+    LOGIN_FAILED(AuditCategory.AUTHENTICATION),
+    LOGOUT(AuditCategory.AUTHENTICATION),
+
+    PRODUCT_CREATED(AuditCategory.PRODUCT),
+    PRODUCT_UPDATED(AuditCategory.PRODUCT),
+    PRODUCT_DELETED(AuditCategory.PRODUCT),
+
+    FAVORITE_ADDED(AuditCategory.FAVORITE),
+    FAVORITE_REMOVED(AuditCategory.FAVORITE),
+
+    ORDER_CREATED(AuditCategory.ORDER),
+    ORDER_CONFIRMED(AuditCategory.ORDER),
+    ORDER_COMPLETED(AuditCategory.ORDER),
+    ORDER_CANCELLED(AuditCategory.ORDER),
+
+    CONVERSATION_CREATED(AuditCategory.CHAT),
+    CHAT_MESSAGE_SENT(AuditCategory.CHAT),
+    CHAT_MESSAGES_READ(AuditCategory.CHAT),
+
+    MEMBERSHIP_PAYMENT_CREATED(AuditCategory.MEMBERSHIP),
+    MEMBERSHIP_PAYMENT_CANCELLED(AuditCategory.MEMBERSHIP),
+    MEMBERSHIP_PAYMENT_CONFIRMED(AuditCategory.MEMBERSHIP),
+    MEMBERSHIP_ACTIVATED(AuditCategory.MEMBERSHIP),
+    BOOST_CREDITED(AuditCategory.MEMBERSHIP),
+
+    ADMIN_USER_DELETED(AuditCategory.ADMIN),
+    MEMBERSHIP_PLAN_CREATED(AuditCategory.ADMIN),
+    MEMBERSHIP_PLAN_UPDATED(AuditCategory.ADMIN),
+    MEMBERSHIP_PLAN_HIDDEN(AuditCategory.ADMIN),
+
+    USER_LOCATION_UPDATED(AuditCategory.LOCATION),
+    USER_LOCATION_CLEARED(AuditCategory.LOCATION),
+
+    REPORT_CREATED(AuditCategory.MODERATION),
+    REPORT_CLAIMED(AuditCategory.MODERATION),
+    REPORT_RESOLVED(AuditCategory.MODERATION),
+    REPORT_DISMISSED(AuditCategory.MODERATION),
+    PRODUCT_MODERATION_HIDDEN(AuditCategory.MODERATION),
+    USER_WARNED(AuditCategory.MODERATION),
+    USER_SUSPENDED(AuditCategory.MODERATION),
+
+    AUDIT_EXPORTED(AuditCategory.ADMIN),
+    AUDIT_RETENTION_PURGED(AuditCategory.SYSTEM),
+    PRODUCT_STATE_RECONCILED(AuditCategory.SYSTEM);
+
+    private final AuditCategory category;
+
+    AuditEventType(AuditCategory category) {
+        this.category = category;
+    }
+}

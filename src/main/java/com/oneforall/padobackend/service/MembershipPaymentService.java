@@ -4,6 +4,8 @@ import com.oneforall.padobackend.dto.CreateMembershipPaymentRequest;
 import com.oneforall.padobackend.dto.MembershipPaymentResponse;
 import com.oneforall.padobackend.dto.MockPaymentConfirmationResponse;
 import com.oneforall.padobackend.dto.UserMembershipResponse;
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.BillingCycle;
 import com.oneforall.padobackend.entity.MembershipPayment;
 import com.oneforall.padobackend.entity.MembershipPlan;
@@ -27,6 +29,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -34,6 +37,7 @@ public class MembershipPaymentService {
     private final MembershipPlanRepository plans;
     private final MembershipPaymentRepository payments;
     private final UserRepository users;
+    private final AuditService auditService;
     private final boolean mockPaymentEnabled;
     private final String vietQrBankId;
     private final String vietQrBankName;
@@ -42,7 +46,7 @@ public class MembershipPaymentService {
     private final String vietQrTemplate;
 
     public MembershipPaymentService(MembershipPlanRepository plans, MembershipPaymentRepository payments,
-                                    UserRepository users,
+                                    UserRepository users, AuditService auditService,
                                     @Value("${app.payment.mock-enabled:true}") boolean mockPaymentEnabled,
                                     @Value("${app.payment.vietqr.bank-id:}") String vietQrBankId,
                                     @Value("${app.payment.vietqr.bank-name:}") String vietQrBankName,
@@ -52,6 +56,7 @@ public class MembershipPaymentService {
         this.plans = plans;
         this.payments = payments;
         this.users = users;
+        this.auditService = auditService;
         this.mockPaymentEnabled = mockPaymentEnabled;
         this.vietQrBankId = vietQrBankId.trim();
         this.vietQrBankName = vietQrBankName.trim();
@@ -93,7 +98,9 @@ public class MembershipPaymentService {
         payment.setPaymentMethod(request.paymentMethod());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setMockPayment(mockPaymentEnabled);
-        return response(payments.save(payment));
+        MembershipPayment saved = payments.save(payment);
+        auditPayment(AuditEventType.MEMBERSHIP_PAYMENT_CREATED, user, saved);
+        return response(saved);
     }
 
     @Transactional(readOnly = true)
@@ -129,13 +136,16 @@ public class MembershipPaymentService {
             payment.setPaidAt(Instant.now());
             users.save(user);
             payments.save(payment);
+            auditPayment(AuditEventType.MEMBERSHIP_PAYMENT_CONFIRMED, user, payment);
+            auditBenefits(user, user, plan, payment);
         }
         return new MockPaymentConfirmationResponse(response(payment),
                 UserMembershipResponse.from(user));
     }
 
     @Transactional
-    public MockPaymentConfirmationResponse confirmByAdmin(Long paymentId) {
+    public MockPaymentConfirmationResponse confirmByAdmin(Long paymentId, String adminEmail) {
+        User admin = requireUser(adminEmail);
         MembershipPayment payment = payments.findLockedById(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
         if (payment.getStatus() == PaymentStatus.CANCELLED) {
@@ -151,6 +161,8 @@ public class MembershipPaymentService {
             payment.setPaidAt(Instant.now());
             users.save(user);
             payments.save(payment);
+            auditPayment(AuditEventType.MEMBERSHIP_PAYMENT_CONFIRMED, admin, payment);
+            auditBenefits(admin, user, plan, payment);
         }
         return new MockPaymentConfirmationResponse(response(payment), UserMembershipResponse.from(user));
     }
@@ -164,7 +176,9 @@ public class MembershipPaymentService {
             throw new ConflictException("Paid payment cannot be cancelled");
         }
         payment.setStatus(PaymentStatus.CANCELLED);
-        return response(payments.save(payment));
+        MembershipPayment saved = payments.save(payment);
+        auditPayment(AuditEventType.MEMBERSHIP_PAYMENT_CANCELLED, user, saved);
+        return response(saved);
     }
 
     @Transactional(readOnly = true)
@@ -216,6 +230,37 @@ public class MembershipPaymentService {
             case YEARLY -> now.plus(365, ChronoUnit.DAYS);
             case LIFETIME, PER_USE -> null;
         });
+    }
+
+    private void auditPayment(AuditEventType type, User actor, MembershipPayment payment) {
+        auditService.recordSuccess(type, actor, AuditTargetType.MEMBERSHIP_PAYMENT, payment.getId(), Map.of(
+                "beneficiaryUserId", payment.getUserId(),
+                "planCode", payment.getPlanCode(),
+                "amount", payment.getAmount(),
+                "paymentMethod", payment.getPaymentMethod().name(),
+                "status", payment.getStatus().name()
+        ));
+    }
+
+    private void auditBenefits(User actor, User beneficiary, MembershipPlan plan,
+                               MembershipPayment payment) {
+        if (plan.getBoostQuota() > 0) {
+            auditService.recordSuccess(AuditEventType.BOOST_CREDITED, actor,
+                    AuditTargetType.USER, beneficiary.getId(), Map.of(
+                            "paymentId", payment.getId(),
+                            "planCode", plan.getCode(),
+                            "creditedAmount", plan.getBoostQuota(),
+                            "newBalance", beneficiary.getBoostBalance()
+                    ));
+        }
+        if (plan.getBillingCycle() != BillingCycle.PER_USE) {
+            auditService.recordSuccess(AuditEventType.MEMBERSHIP_ACTIVATED, actor,
+                    AuditTargetType.USER, beneficiary.getId(), Map.of(
+                            "paymentId", payment.getId(),
+                            "planCode", plan.getCode(),
+                            "expiresAt", beneficiary.getMembershipExpiresAt().toString()
+                    ));
+        }
     }
 
     private User requireUser(String email) {

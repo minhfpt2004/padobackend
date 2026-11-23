@@ -44,6 +44,14 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role = Role.USER;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_status", nullable = false, length = 20)
+    @ColumnDefault("'ACTIVE'")
+    private UserModerationStatus moderationStatus = UserModerationStatus.ACTIVE;
+
+    @Column(name = "moderation_reason", length = 2000)
+    private String moderationReason;
+
     @Column(name = "location_label", length = 100)
     private String locationLabel;
 

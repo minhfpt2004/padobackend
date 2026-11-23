@@ -9,6 +9,7 @@ import com.oneforall.padobackend.service.MembershipPlanService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,19 +38,22 @@ public class AdminMembershipController {
     }
 
     @PostMapping("/plans")
-    ResponseEntity<MembershipPlanResponse> create(@Valid @RequestBody UpsertMembershipPlanRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(planService.create(request));
+    ResponseEntity<MembershipPlanResponse> create(@Valid @RequestBody UpsertMembershipPlanRequest request,
+                                                  Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(planService.create(request, authentication.getName()));
     }
 
     @PutMapping("/plans/{code}")
     MembershipPlanResponse update(@PathVariable String code,
-                                  @Valid @RequestBody UpsertMembershipPlanRequest request) {
-        return planService.update(code, request);
+                                  @Valid @RequestBody UpsertMembershipPlanRequest request,
+                                  Authentication authentication) {
+        return planService.update(code, request, authentication.getName());
     }
 
     @DeleteMapping("/plans/{code}")
-    MembershipPlanResponse hide(@PathVariable String code) {
-        return planService.hide(code);
+    MembershipPlanResponse hide(@PathVariable String code, Authentication authentication) {
+        return planService.hide(code, authentication.getName());
     }
 
     @GetMapping("/payments")
@@ -58,7 +62,8 @@ public class AdminMembershipController {
     }
 
     @PostMapping("/payments/{paymentId}/confirm")
-    MockPaymentConfirmationResponse confirmPayment(@PathVariable Long paymentId) {
-        return paymentService.confirmByAdmin(paymentId);
+    MockPaymentConfirmationResponse confirmPayment(@PathVariable Long paymentId,
+                                                    Authentication authentication) {
+        return paymentService.confirmByAdmin(paymentId, authentication.getName());
     }
 }

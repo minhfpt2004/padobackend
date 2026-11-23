@@ -2,6 +2,8 @@ package com.oneforall.padobackend.service;
 
 import com.oneforall.padobackend.dto.ProductRequest;
 import com.oneforall.padobackend.dto.ProductResponse;
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.Product;
 import com.oneforall.padobackend.entity.OrderStatus;
 import com.oneforall.padobackend.entity.Role;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Comparator;
+import java.util.Map;
 
 @Service
 public class ProductService {
@@ -27,22 +30,26 @@ public class ProductService {
     private final ProductRepository products;
     private final UserRepository users;
     private final OrderRepository orders;
+    private final AuditService auditService;
 
-    public ProductService(ProductRepository products, UserRepository users, OrderRepository orders) {
+    public ProductService(ProductRepository products, UserRepository users, OrderRepository orders,
+                          AuditService auditService) {
         this.products = products;
         this.users = users;
         this.orders = orders;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
-        return products.findAllByOrderByCreatedAtDesc().stream().map(this::response).toList();
+        return products.findAllByModerationHiddenFalseOrderByCreatedAtDesc().stream()
+                .map(this::response).toList();
     }
 
     @Transactional(readOnly = true)
     public List<ProductResponse> findNearby(double latitude, double longitude, double radiusKm, int limit) {
         validateNearbyRequest(latitude, longitude, radiusKm, limit);
-        return products.findAllByOrderByCreatedAtDesc().stream()
+        return products.findAllByModerationHiddenFalseOrderByCreatedAtDesc().stream()
                 .filter(product -> product.getLatitude() != null && product.getLongitude() != null)
                 .map(product -> new ProductDistance(product, distanceKm(
                         latitude, longitude, product.getLatitude(), product.getLongitude())))
@@ -55,7 +62,9 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public ProductResponse findById(Long id) {
-        return response(requireProduct(id));
+        Product product = products.findVisibleDetailById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
+        return response(product);
     }
 
     @Transactional(readOnly = true)
@@ -67,26 +76,38 @@ public class ProductService {
     @Transactional
     public ProductResponse create(ProductRequest request, String email) {
         Product product = new Product();
-        product.setOwner(requireUser(email));
+        User actor = requireUser(email);
+        product.setOwner(actor);
         apply(product, request);
-        return response(products.save(product));
+        Product saved = products.save(product);
+        auditService.recordSuccess(AuditEventType.PRODUCT_CREATED, actor,
+                AuditTargetType.PRODUCT, saved.getId(), productMetadata(saved));
+        return response(saved);
     }
 
     @Transactional
     public ProductResponse update(Long id, ProductRequest request, String email) {
         Product product = requireProduct(id);
-        verifyOwnerOrAdmin(product, requireUser(email));
+        User actor = requireUser(email);
+        verifyOwnerOrAdmin(product, actor);
         verifyNoProtectedOrder(product);
         apply(product, request);
-        return response(products.save(product));
+        Product saved = products.save(product);
+        auditService.recordSuccess(AuditEventType.PRODUCT_UPDATED, actor,
+                AuditTargetType.PRODUCT, saved.getId(), productMetadata(saved));
+        return response(saved);
     }
 
     @Transactional
     public void delete(Long id, String email) {
         Product product = requireProduct(id);
-        verifyOwnerOrAdmin(product, requireUser(email));
+        User actor = requireUser(email);
+        verifyOwnerOrAdmin(product, actor);
         verifyNoProtectedOrder(product);
+        Map<String, Object> metadata = productMetadata(product);
         products.delete(product);
+        auditService.recordSuccess(AuditEventType.PRODUCT_DELETED, actor,
+                AuditTargetType.PRODUCT, product.getId(), metadata);
     }
 
     private Product requireProduct(Long id) {
@@ -137,6 +158,14 @@ public class ProductService {
 
     private ProductResponse response(Product product) {
         return ProductResponse.from(product);
+    }
+
+    private Map<String, Object> productMetadata(Product product) {
+        return Map.of(
+                "title", product.getTitle(),
+                "ownerUserId", product.getOwner().getId(),
+                "sold", product.isSold()
+        );
     }
 
     private void validateNearbyRequest(double latitude, double longitude, double radiusKm, int limit) {

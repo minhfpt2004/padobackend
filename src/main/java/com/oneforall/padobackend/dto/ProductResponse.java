@@ -12,7 +12,8 @@ public record ProductResponse(
         Long id, String title, String brand, String category, String size, String color,
         String condition, BigDecimal price, BigDecimal originalPrice, BigDecimal shippingFee,
         String description, String reason, String sellerLocation, Double latitude, Double longitude,
-        boolean sold, List<String> images, Set<DeliveryType> deliveryOptions,
+        boolean sold, boolean moderationHidden, String moderationReason,
+        List<String> images, Set<DeliveryType> deliveryOptions,
         Long ownerId, String seller, Instant createdAt, Instant updatedAt
 ) {
     public static ProductResponse from(Product product) {
@@ -21,6 +22,7 @@ public record ProductResponse(
                 product.getPrice(), product.getOriginalPrice(), product.getShippingFee(),
                 product.getDescription(), product.getReason(), product.getSellerLocation(),
                 product.getLatitude(), product.getLongitude(), product.isSold(),
+                product.isModerationHidden(), product.getModerationReason(),
                 List.copyOf(product.getImages()), Set.copyOf(product.getDeliveryOptions()),
                 product.getOwner().getId(), product.getOwner().getEmail(),
                 product.getCreatedAt(), product.getUpdatedAt());

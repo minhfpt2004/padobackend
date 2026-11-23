@@ -2,8 +2,11 @@ package com.oneforall.padobackend.service;
 
 import com.oneforall.padobackend.dto.MembershipPlanResponse;
 import com.oneforall.padobackend.dto.UpsertMembershipPlanRequest;
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.MembershipPlan;
 import com.oneforall.padobackend.entity.MembershipPlanStatus;
+import com.oneforall.padobackend.entity.User;
 import com.oneforall.padobackend.exception.BadRequestException;
 import com.oneforall.padobackend.exception.ResourceNotFoundException;
 import com.oneforall.padobackend.repository.MembershipPlanRepository;
@@ -13,15 +16,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class MembershipPlanService {
     private final MembershipPlanRepository plans;
     private final UserRepository users;
+    private final AuditService auditService;
 
-    public MembershipPlanService(MembershipPlanRepository plans, UserRepository users) {
+    public MembershipPlanService(MembershipPlanRepository plans, UserRepository users,
+                                 AuditService auditService) {
         this.plans = plans;
         this.users = users;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -36,17 +43,22 @@ public class MembershipPlanService {
     }
 
     @Transactional
-    public MembershipPlanResponse create(UpsertMembershipPlanRequest request) {
+    public MembershipPlanResponse create(UpsertMembershipPlanRequest request, String adminEmail) {
+        User actor = requireUser(adminEmail);
         String code = normalize(request.code());
         if (plans.existsById(code)) throw new BadRequestException("Membership plan code already exists");
         MembershipPlan plan = new MembershipPlan();
         plan.setCode(code);
         apply(plan, request);
-        return response(plans.save(plan));
+        MembershipPlan saved = plans.save(plan);
+        auditPlan(AuditEventType.MEMBERSHIP_PLAN_CREATED, actor, saved);
+        return response(saved);
     }
 
     @Transactional
-    public MembershipPlanResponse update(String code, UpsertMembershipPlanRequest request) {
+    public MembershipPlanResponse update(String code, UpsertMembershipPlanRequest request,
+                                         String adminEmail) {
+        User actor = requireUser(adminEmail);
         String normalized = normalize(code);
         if (!normalized.equals(normalize(request.code()))) {
             throw new BadRequestException("Plan code in path and request must match");
@@ -56,15 +68,20 @@ public class MembershipPlanService {
         }
         MembershipPlan plan = requirePlan(normalized);
         apply(plan, request);
-        return response(plans.save(plan));
+        MembershipPlan saved = plans.save(plan);
+        auditPlan(AuditEventType.MEMBERSHIP_PLAN_UPDATED, actor, saved);
+        return response(saved);
     }
 
     @Transactional
-    public MembershipPlanResponse hide(String code) {
+    public MembershipPlanResponse hide(String code, String adminEmail) {
+        User actor = requireUser(adminEmail);
         MembershipPlan plan = requirePlan(normalize(code));
         if ("FREE".equals(plan.getCode())) throw new BadRequestException("FREE plan cannot be hidden");
         plan.setStatus(MembershipPlanStatus.HIDDEN);
-        return response(plans.save(plan));
+        MembershipPlan saved = plans.save(plan);
+        auditPlan(AuditEventType.MEMBERSHIP_PLAN_HIDDEN, actor, saved);
+        return response(saved);
     }
 
     private void apply(MembershipPlan plan, UpsertMembershipPlanRequest request) {
@@ -88,6 +105,20 @@ public class MembershipPlanService {
 
     private MembershipPlanResponse response(MembershipPlan plan) {
         return MembershipPlanResponse.from(plan, users.countByMembershipPlan_Code(plan.getCode()));
+    }
+
+    private User requireUser(String email) {
+        return users.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    private void auditPlan(AuditEventType type, User actor, MembershipPlan plan) {
+        auditService.recordSuccess(type, actor, AuditTargetType.MEMBERSHIP_PLAN, plan.getCode(), Map.of(
+                "name", plan.getName(),
+                "billingCycle", plan.getBillingCycle().name(),
+                "price", plan.getPrice(),
+                "status", plan.getStatus().name()
+        ));
     }
 
     private String normalize(String code) {

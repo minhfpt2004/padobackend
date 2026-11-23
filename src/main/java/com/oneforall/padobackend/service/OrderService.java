@@ -2,6 +2,8 @@ package com.oneforall.padobackend.service;
 
 import com.oneforall.padobackend.dto.CreateOrderRequest;
 import com.oneforall.padobackend.dto.OrderResponse;
+import com.oneforall.padobackend.entity.AuditEventType;
+import com.oneforall.padobackend.entity.AuditTargetType;
 import com.oneforall.padobackend.entity.DeliveryType;
 import com.oneforall.padobackend.entity.OrderStatus;
 import com.oneforall.padobackend.entity.Product;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class OrderService {
@@ -30,11 +33,14 @@ public class OrderService {
     private final OrderRepository orders;
     private final ProductRepository products;
     private final UserRepository users;
+    private final AuditService auditService;
 
-    public OrderService(OrderRepository orders, ProductRepository products, UserRepository users) {
+    public OrderService(OrderRepository orders, ProductRepository products, UserRepository users,
+                        AuditService auditService) {
         this.orders = orders;
         this.products = products;
         this.users = users;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -48,6 +54,9 @@ public class OrderService {
         }
         if (product.isSold()) {
             throw new ConflictException("Product is no longer available");
+        }
+        if (product.isModerationHidden()) {
+            throw new ConflictException("Product is not available for purchase");
         }
         if (orders.existsByProductIdAndBuyerIdAndStatusIn(
                 product.getId(), buyer.getId(), BUYER_ACTIVE_ORDER_STATUSES)) {
@@ -99,7 +108,9 @@ public class OrderService {
                     request.buyerLatitude(), request.buyerLongitude()));
         }
 
-        return OrderResponse.from(orders.save(order));
+        PurchaseOrder saved = orders.save(order);
+        auditOrder(AuditEventType.ORDER_CREATED, buyer, saved, Map.of());
+        return OrderResponse.from(saved);
     }
 
     @Transactional(readOnly = true)
@@ -155,7 +166,12 @@ public class OrderService {
             case PENDING -> throw new ConflictException("Order cannot return to pending status");
         }
 
-        return OrderResponse.from(orders.save(order));
+        PurchaseOrder saved = orders.save(order);
+        auditOrder(target == OrderStatus.COMPLETED
+                        ? AuditEventType.ORDER_COMPLETED
+                        : AuditEventType.ORDER_CANCELLED,
+                actor, saved, Map.of());
+        return OrderResponse.from(saved);
     }
 
     private OrderResponse confirm(Long id, User actor) {
@@ -190,7 +206,12 @@ public class OrderService {
             candidate.setCancelledAt(now);
         });
         orders.saveAll(otherCandidates);
-        return OrderResponse.from(orders.save(order));
+        PurchaseOrder saved = orders.save(order);
+        auditOrder(AuditEventType.ORDER_CONFIRMED, actor, saved,
+                Map.of("autoCancelledOrderCount", otherCandidates.size()));
+        otherCandidates.forEach(candidate -> auditOrder(AuditEventType.ORDER_CANCELLED, actor, candidate,
+                Map.of("reason", "ANOTHER_ORDER_CONFIRMED", "confirmedOrderId", saved.getId())));
+        return OrderResponse.from(saved);
     }
 
     private void complete(PurchaseOrder order, User actor) {
@@ -239,6 +260,19 @@ public class OrderService {
 
     private boolean isAdmin(User user) {
         return user.getRole() == Role.ADMIN;
+    }
+
+    private void auditOrder(AuditEventType type, User actor, PurchaseOrder order,
+                            Map<String, Object> additionalMetadata) {
+        Map<String, Object> metadata = new java.util.LinkedHashMap<>();
+        metadata.put("productId", order.getProductId());
+        metadata.put("buyerUserId", order.getBuyerId());
+        metadata.put("sellerUserId", order.getSellerId());
+        metadata.put("status", order.getStatus().name());
+        metadata.put("totalAmount", order.getTotalAmount());
+        metadata.put("deliveryType", order.getDeliveryType().name());
+        metadata.putAll(additionalMetadata);
+        auditService.recordSuccess(type, actor, AuditTargetType.ORDER, order.getId(), metadata);
     }
 
     private String clean(String value) {

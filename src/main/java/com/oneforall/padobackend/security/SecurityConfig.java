@@ -24,6 +24,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
+import com.oneforall.padobackend.entity.UserModerationStatus;
 
 @Configuration
 @EnableMethodSecurity
@@ -40,6 +41,8 @@ public class SecurityConfig {
                         .withUsername(user.getEmail())
                         .password(user.getPasswordHash())
                         .roles(user.getRole().name())
+                        .disabled(user.getModerationStatus() == UserModerationStatus.SUSPENDED
+                                || user.getModerationStatus() == UserModerationStatus.DEACTIVATED)
                         .build())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
@@ -57,7 +60,8 @@ public class SecurityConfig {
                                 writeSecurityError(response, 403, "Forbidden", "You do not have permission")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/api/auth/register", "/api/auth/register/verify", "/api/auth/register/resend",
-                                "/api/auth/login", "/api/health", "/v3/api-docs/**", "/swagger-ui/**").permitAll()
+                                "/api/auth/login", "/api/health", "/v3/api-docs/**", "/swagger-ui/**",
+                                "/admin/audit", "/admin/audit/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/locations/search", "/api/locations/reverse").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/membership/plans").permitAll()
@@ -80,7 +84,8 @@ public class SecurityConfig {
                 .distinct()
                 .toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID"));
+        config.setExposedHeaders(List.of("X-Request-ID"));
         config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

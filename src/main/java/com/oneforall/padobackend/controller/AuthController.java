@@ -38,7 +38,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    MessageResponse logout() {
+    MessageResponse logout(Authentication authentication) {
+        authService.logout(authentication.getName());
         return new MessageResponse("Logged out. Delete the access token on the client; the old token remains valid until it expires.");
     }
 
